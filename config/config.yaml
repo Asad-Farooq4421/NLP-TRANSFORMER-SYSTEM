@@ -1,0 +1,58 @@
+# Global Settings
+seed: 42
+device: "cuda" # Automatically falls back to cpu in code if no GPU available
+
+# File Paths
+paths:
+  raw_data_dir: "data/raw"
+  processed_data_dir: "data/processed"
+  saved_models_dir: "saved_models"
+  logs_dir: "logs"
+
+# Data Preprocessing & Tokenization
+data:
+  max_length: 128
+  vocab_size: 30000
+  batch_size: 32
+  datasets:
+    imdb: "stanfordnlp/imdb"
+    ag_news: "fancyzhx/ag_news"
+    sst2: "nyu-mll/glue"
+
+# From-Scratch Transformer Architecture
+scratch_transformer:
+  d_model: 256
+  n_heads: 8
+  n_encoder_layers: 4
+  n_decoder_layers: 4
+  d_ff: 1024
+  dropout: 0.1
+  learning_rate: 0.0003
+  epochs: 5
+
+# Pretrained HuggingFace Models
+pretrained_models:
+  bert_classifier: "bert-base-uncased"
+  distilbert_classifier: "distilbert-base-uncased"
+  gpt_generator: "gpt2"
+  t5_task_model: "t5-small"
+
+# Fine-Tuning Parameters
+fine_tuning:
+  learning_rate: 0.00002 # 2e-5
+  weight_decay: 0.01
+  epochs: 3
+  warmup_steps: 500
+
+# Text Generation Settings
+generation:
+  max_new_tokens: 100
+  temperature: 0.7
+  top_k: 50
+  top_p: 0.9
+  num_beams: 4
+
+# API & Web App Config
+api:
+  host: "0.0.0.0"
+  port: 8000

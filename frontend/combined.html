@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transformer NLP Studio</title>
+    <!-- Google Fonts & FontAwesome Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for Visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+    :root {
+        --bg-main: #F7F4EE;
+        --card-bg: #FFFFFF;
+        --card-inner-bg: #F4EFEA;
+        --card-border: #E6DFC5;
+        --accent-primary: #B59A7D;
+        --accent-dark: #8C725B;
+        --accent-btn: #B0967A;
+        --text-primary: #332E2A;
+        --text-secondary: #6B635B;
+        --text-muted: #A39B92;
+        --success: #2E7D32;
+        --danger: #C62828;
+        --shadow-soft: 0 12px 48px rgba(180, 160, 135, 0.15);
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        min-height: 100vh;
+        width: 100%;
+        padding-bottom: 60px;
+    }
+
+    /* Background Grid Pattern */
+    .bg-grid {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-image: radial-gradient(rgba(181, 154, 125, 0.25) 1.5px, transparent 0);
+        background-size: 28px 28px;
+        z-index: -1;
+    }
+
+    /* Header Navbar */
+    .navbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 24px 48px;
+        background: rgba(247, 244, 238, 0.95);
+        backdrop-filter: blur(10px);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        width: 100%;
+        border-bottom: 2px solid var(--card-border);
+    }
+
+    .nav-brand {
+        font-size: 26px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        color: var(--text-primary);
+    }
+
+    .brand-icon, .highlight { color: var(--accent-dark); }
+
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 15px;
+        font-weight: 700;
+        background: var(--card-bg);
+        border: 2px solid var(--card-border);
+        color: var(--text-secondary);
+        padding: 10px 24px;
+        border-radius: 30px;
+    }
+
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .status-dot.online { background-color: var(--success); box-shadow: 0 0 10px rgba(46, 125, 50, 0.5); }
+    .status-dot.offline { background-color: var(--danger); box-shadow: 0 0 10px rgba(198, 40, 40, 0.5); }
+
+    /* Wide Fluid Container */
+    .container {
+        width: 95%;
+        max-width: 1600px;
+        margin: 30px auto;
+    }
+
+    /* Tabs Navigation */
+    .tabs-nav {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-bottom: 36px;
+    }
+
+    .tab-btn {
+        background: var(--card-bg);
+        border: 2px solid var(--card-border);
+        color: var(--text-secondary);
+        padding: 16px 36px;
+        font-size: 17px;
+        font-weight: 800;
+        cursor: pointer;
+        border-radius: 14px;
+        transition: all 0.25s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .tab-btn:hover { color: var(--text-primary); border-color: var(--accent-dark); }
+
+    .tab-btn.active {
+        background: var(--card-bg);
+        color: var(--text-primary);
+        border-color: var(--accent-dark);
+        box-shadow: 0 6px 16px rgba(140, 114, 91, 0.15);
+    }
+
+    /* Outer Workspace Card */
+    .workspace-card {
+        display: none;
+        background: var(--card-bg);
+        border-radius: 24px;
+        padding: 48px;
+        box-shadow: var(--shadow-soft);
+        border: 2px solid var(--card-border);
+        width: 100%;
+    }
+
+    .workspace-card.active { display: block; }
+
+    .card-header h2 {
+        font-size: 30px;
+        font-weight: 800;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .card-header h2 i { color: var(--accent-dark); }
+
+    .card-header p {
+        color: var(--text-secondary);
+        font-size: 17px;
+        font-weight: 600;
+        margin-top: 8px;
+        margin-bottom: 36px;
+    }
+
+    /* Structural Grids */
+    .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+    }
+
+    .grid-3 {
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        gap: 40px;
+    }
+
+    /* Parameters Card */
+    .params-panel {
+        background: var(--card-inner-bg);
+        padding: 32px;
+        border-radius: 20px;
+        border: 1px solid var(--card-border);
+    }
+
+    .params-panel h3 {
+        font-size: 20px;
+        font-weight: 800;
+        margin-bottom: 28px;
+        color: var(--text-primary);
+    }
+
+    .slider-group {
+        margin-bottom: 26px;
+    }
+
+    .slider-group label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 16px;
+        font-weight: 800;
+        margin-bottom: 10px;
+        color: var(--text-primary);
+    }
+
+    .slider-group span { font-weight: 800; color: var(--accent-dark); font-size: 17px; }
+    
+    input[type="range"] {
+        width: 100%;
+        height: 8px;
+        accent-color: var(--accent-dark);
+        cursor: pointer;
+    }
+
+    /* Inputs & Textareas */
+    .input-output-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .input-group, .output-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    label { font-size: 18px; font-weight: 800; color: var(--text-primary); }
+
+    textarea, input[type="text"] {
+        background: var(--card-inner-bg);
+        border: 2px solid var(--card-border);
+        border-radius: 16px;
+        padding: 24px;
+        color: var(--text-primary);
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 1.6;
+        resize: vertical;
+        outline: none;
+        width: 100%;
+        min-height: 180px;
+    }
+
+    textarea:focus, input[type="text"]:focus {
+        border-color: var(--accent-dark);
+        background: #FFFFFF;
+        box-shadow: 0 0 0 4px rgba(140, 114, 91, 0.15);
+    }
+
+    /* Action Buttons */
+    .btn {
+        padding: 20px 36px;
+        border-radius: 16px;
+        border: none;
+        font-weight: 800;
+        font-size: 18px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        transition: all 0.2s ease;
+        width: 100%;
+        background: var(--accent-btn);
+        color: #FFFFFF;
+        box-shadow: 0 4px 16px rgba(140, 114, 91, 0.25);
+    }
+
+    .btn:hover {
+        filter: brightness(0.92);
+        transform: translateY(-2px);
+    }
+
+    /* Large Prominent Output Box */
+    .result-box {
+        background: var(--card-inner-bg);
+        border: 2px solid var(--card-border);
+        border-radius: 16px;
+        padding: 26px;
+        min-height: 180px;
+        color: var(--text-primary);
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 1.7;
+    }
+
+    .code-font {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 17px;
+        color: var(--text-primary);
+    }
+
+    .placeholder-text {
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 17px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .chart-container { margin-top: 20px; height: 320px; width: 100%; }
+
+    .spinner { width: 22px; height: 22px; border: 3px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .hidden { display: none !important; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 1100px) {
+        .grid-3, .grid-2 { grid-template-columns: 1fr; }
+        .container { width: 98%; padding: 10px; }
+        .workspace-card { padding: 28px; }
+    }
+    </style>
+</head>
+<body>
+
+    <div class="bg-grid"></div>
+
+    <header class="navbar">
+        <div class="nav-brand">
+            <i class="fa-solid fa-bolt brand-icon"></i>
+            <span>Transformer<span class="highlight">Studio</span></span>
+        </div>
+        <div class="status-indicator" id="statusIndicator">
+            <span class="status-dot offline" id="statusDot"></span>
+            <span id="statusText">Checking Backend...</span>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <div class="tabs-nav">
+            <button class="tab-btn" onclick="switchTab('classify', event)"><i class="fa-solid fa-tags"></i> Classification</button>
+            <button class="tab-btn active" onclick="switchTab('generate', event)"><i class="fa-solid fa-wand-magic-sparkles"></i> Text Generation</button>
+            <button class="tab-btn" onclick="switchTab('summarize', event)"><i class="fa-solid fa-compress"></i> Summarization</button>
+            <button class="tab-btn" onclick="switchTab('translate', event)"><i class="fa-solid fa-language"></i> Translation</button>
+        </div>
+
+        <!-- WORKSPACE 1: CLASSIFICATION -->
+        <section id="classify" class="workspace-card">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-newspaper"></i> AG News Topic & Sentiment Classification</h2>
+                <p>DistilBERT fine-tuned encoder analyzing semantics and probability distributions.</p>
+            </div>
+            <div class="card-body grid-2">
+                <div class="input-group">
+                    <label for="classifyInput">Input Text:</label>
+                    <textarea id="classifyInput" rows="6">Wall Street stocks surged today as tech earnings exceeded analyst predictions across all quarters.</textarea>
+                    <button class="btn" onclick="runClassification()">
+                        <span class="btn-text"><i class="fa-solid fa-paper-plane"></i> Analyze Category</span>
+                        <div class="spinner hidden" id="classifySpinner"></div>
+                    </button>
+                </div>
+                <div class="output-group">
+                    <label>Inference Results:</label>
+                    <div class="result-box" id="classifyResult">
+                        <div class="placeholder-text"><i class="fa-solid fa-chart-pie"></i> Submit text to inspect classification probabilities.</div>
+                    </div>
+                    <div class="chart-container hidden" id="chartWrapper">
+                        <canvas id="probabilityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- WORKSPACE 2: GENERATION -->
+        <section id="generate" class="workspace-card active">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-robot"></i> GPT-2 Autoregressive Generation</h2>
+                <p>Causal language model predicting next token sequences based on sampling parameters.</p>
+            </div>
+            <div class="card-body grid-3">
+                <div class="params-panel">
+                    <h3>Parameters</h3>
+                    <div class="slider-group">
+                        <label>Temperature: <span id="valTemp">0.7</span></label>
+                        <input type="range" id="paramTemp" min="0.1" max="1.5" step="0.1" value="0.7" oninput="updateVal('valTemp', this.value)">
+                    </div>
+                    <div class="slider-group">
+                        <label>Top-K: <span id="valTopK">50</span></label>
+                        <input type="range" id="paramTopK" min="1" max="100" step="1" value="50" oninput="updateVal('valTopK', this.value)">
+                    </div>
+                    <div class="slider-group">
+                        <label>Top-P (Nucleus): <span id="valTopP">0.9</span></label>
+                        <input type="range" id="paramTopP" min="0.1" max="1.0" step="0.05" value="0.9" oninput="updateVal('valTopP', this.value)">
+                    </div>
+                    <div class="slider-group">
+                        <label>Max Tokens: <span id="valTokens">50</span></label>
+                        <input type="range" id="paramTokens" min="10" max="150" step="5" value="50" oninput="updateVal('valTokens', this.value)">
+                    </div>
+                </div>
+                <div class="input-output-panel">
+                    <div class="input-group">
+                        <label for="generatePrompt">Prompt String:</label>
+                        <textarea id="generatePrompt" rows="4">Artificial Intelligence in modern healthcare is</textarea>
+                        <button class="btn" onclick="runGeneration()">
+                            <span class="btn-text"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Completion</span>
+                            <div class="spinner hidden" id="generateSpinner"></div>
+                        </button>
+                    </div>
+                    <div class="output-group">
+                        <label>Generated Completion:</label>
+                        <div class="result-box code-font" id="generateResult">
+                            <div class="placeholder-text"><i class="fa-solid fa-terminal"></i> Output text will appear here with typewriter effect...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- WORKSPACE 3: SUMMARIZATION -->
+        <section id="summarize" class="workspace-card">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-file-contract"></i> Abstractive Text Summarization</h2>
+                <p>Google T5 Encoder-Decoder transforming long passages into concise summaries.</p>
+            </div>
+            <div class="card-body grid-2">
+                <div class="input-group">
+                    <label for="summarizeInput">Article Text:</label>
+                    <textarea id="summarizeInput" rows="7">Transformer models have revolutionized natural language processing by enabling parallel token processing during training. Unlike traditional RNNs and LSTMs that process text sequentially step-by-step, transformers utilize multi-head self-attention mechanisms to capture complex contextual dependencies across long distance tokens instantly.</textarea>
+                    <button class="btn" onclick="runSummarization()">
+                        <span class="btn-text"><i class="fa-solid fa-compress"></i> Summarize Text</span>
+                        <div class="spinner hidden" id="summarizeSpinner"></div>
+                    </button>
+                </div>
+                <div class="output-group">
+                    <label>Summary Result:</label>
+                    <div class="result-box" id="summarizeResult">
+                        <div class="placeholder-text"><i class="fa-solid fa-align-left"></i> Summary output will be displayed here...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- WORKSPACE 4: TRANSLATION -->
+        <section id="translate" class="workspace-card">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-globe"></i> Neural Machine Translation</h2>
+                <p>T5 conditional generation converting English text to fluent German.</p>
+            </div>
+            <div class="card-body grid-2">
+                <div class="input-group">
+                    <label for="translateInput">English Text:</label>
+                    <input type="text" id="translateInput" value="Transformer architectures have revolutionized deep learning.">
+                    <button class="btn" onclick="runTranslation()">
+                        <span class="btn-text"><i class="fa-solid fa-arrow-right-arrow-left"></i> Translate to German</span>
+                        <div class="spinner hidden" id="translateSpinner"></div>
+                    </button>
+                </div>
+                <div class="output-group">
+                    <label>German Translation:</label>
+                    <div class="result-box" id="translateResult">
+                        <div class="placeholder-text"><i class="fa-solid fa-language"></i> Translation output will appear here...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+    /* Dynamic API URL: Uses local host if running locally, otherwise points to Vercel serverless /api */
+    const API_URL = window.location.origin.includes("localhost") 
+        ? "http://localhost:8000" 
+        : "/api";
+        
+    let probabilityChart = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+        checkBackendHealth();
+    });
+
+    async function checkBackendHealth() {
+        const dot = document.getElementById("statusDot");
+        const text = document.getElementById("statusText");
+        try {
+            const response = await fetch(`${API_URL}/health`);
+            if (response.ok) {
+                dot.className = "status-dot online";
+                text.innerText = "API Backend Online";
+            } else throw new Error();
+        } catch {
+            dot.className = "status-dot offline";
+            text.innerText = "API Backend Disconnected";
+        }
+    }
+
+    function switchTab(tabId, evt) {
+        document.querySelectorAll(".workspace-card").forEach(card => card.classList.remove("active"));
+        document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+        document.getElementById(tabId).classList.add("active");
+        if (evt) evt.currentTarget.classList.add("active");
+    }
+
+    function updateVal(elementId, value) {
+        document.getElementById(elementId).innerText = value;
+    }
+
+    function typeWriterEffect(elementId, text) {
+        const target = document.getElementById(elementId);
+        target.innerHTML = "";
+        let i = 0;
+        function type() {
+            if (i < text.length) {
+                target.innerHTML += text.charAt(i);
+                i++;
+                setTimeout(type, 12);
+            }
+        }
+        type();
+    }
+
+    async function runClassification() {
+        const input = document.getElementById("classifyInput").value;
+        const spinner = document.getElementById("classifySpinner");
+        const resultBox = document.getElementById("classifyResult");
+        const chartWrapper = document.getElementById("chartWrapper");
+
+        if (!input.trim()) return alert("Please enter text.");
+        spinner.classList.remove("hidden");
+
+        try {
+            const res = await fetch(`${API_URL}/predict/classify`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: input, task: "topic" })
+            });
+            const data = await res.json();
+            const categories = ["World", "Sports", "Business", "Sci/Tech"];
+            const predCategory = categories[data.predicted_class] || "Unknown";
+
+            resultBox.innerHTML = `
+                <div><strong>Predicted Category:</strong> <span style="color: #8C725B; font-weight:800; font-size:20px;">${predCategory}</span></div>
+                <div style="margin-top:8px;"><strong>Model Confidence:</strong> <span style="font-weight:800; font-size:18px;">${(data.confidence * 100).toFixed(2)}%</span></div>
+            `;
+            chartWrapper.classList.remove("hidden");
+            renderChart(categories, data.probabilities);
+        } catch (err) {
+            resultBox.innerHTML = `<span style="color: #ef4444;">Error: ${err.message}</span>`;
+        } finally {
+            spinner.classList.add("hidden");
+        }
+    }
+
+    function renderChart(labels, probabilities) {
+        const ctx = document.getElementById("probabilityChart").getContext("2d");
+        if (probabilityChart) probabilityChart.destroy();
+        probabilityChart = new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels: labels,
+                datasets: [{ label: "Probability", data: probabilities, backgroundColor: "#8C725B", borderRadius: 8 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: "#E6DFC5" }, ticks: { color: "#332E2A", font: { weight: "bold", size: 14 } } },
+                    x: { grid: { display: false }, ticks: { color: "#332E2A", font: { weight: "bold", size: 16 } } }
+                }
+            }
+        });
+    }
+
+    async function runGeneration() {
+        const prompt = document.getElementById("generatePrompt").value;
+        const temp = parseFloat(document.getElementById("paramTemp").value);
+        const topK = parseInt(document.getElementById("paramTopK").value);
+        const topP = parseFloat(document.getElementById("paramTopP").value);
+        const maxTokens = parseInt(document.getElementById("paramTokens").value);
+        const spinner = document.getElementById("generateSpinner");
+
+        if (!prompt.trim()) return alert("Please enter prompt.");
+        spinner.classList.remove("hidden");
+
+        try {
+            const res = await fetch(`${API_URL}/predict/generate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt: prompt, max_tokens: maxTokens, temperature: temp, top_k: topK, top_p: topP })
+            });
+            const data = await res.json();
+            typeWriterEffect("generateResult", data.generated_text);
+        } catch (err) {
+            document.getElementById("generateResult").innerText = `Error: ${err.message}`;
+        } finally {
+            spinner.classList.add("hidden");
+        }
+    }
+
+    async function runSummarization() {
+        const text = document.getElementById("summarizeInput").value;
+        const spinner = document.getElementById("summarizeSpinner");
+        if (!text.trim()) return alert("Please enter text.");
+        spinner.classList.remove("hidden");
+
+        try {
+            const res = await fetch(`${API_URL}/predict/summarize`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: text, max_length: 60 })
+            });
+            const data = await res.json();
+            document.getElementById("summarizeResult").innerText = data.summary;
+        } catch (err) {
+            document.getElementById("summarizeResult").innerText = `Error: ${err.message}`;
+        } finally {
+            spinner.classList.add("hidden");
+        }
+    }
+
+    async function runTranslation() {
+        const text = document.getElementById("translateInput").value;
+        const spinner = document.getElementById("translateSpinner");
+        if (!text.trim()) return alert("Please enter text.");
+        spinner.classList.remove("hidden");
+
+        try {
+            const res = await fetch(`${API_URL}/predict/translate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: text, target_language: "German" })
+            });
+            const data = await res.json();
+            document.getElementById("translateResult").innerHTML = `<strong style="color: #2E7D32; font-size: 20px;">${data.translated_text}</strong>`;
+        } catch (err) {
+            document.getElementById("translateResult").innerText = `Error: ${err.message}`;
+        } finally {
+            spinner.classList.add("hidden");
+        }
+    }
+    </script>
+</body>
+</html>

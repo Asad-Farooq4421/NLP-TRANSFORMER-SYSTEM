@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transformer NLP Studio</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts & FontAwesome Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for Visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <!-- Background Animated Grid Effect -->
+    <div class="bg-grid"></div>
+
+    <!-- Navigation Header -->
+    <header class="navbar">
+        <div class="nav-brand">
+            <i class="fa-solid fa-bolt brand-icon"></i>
+            <span>Transformer<span class="highlight">Studio</span></span>
+        </div>
+        <div class="status-indicator" id="statusIndicator">
+            <span class="status-dot offline" id="statusDot"></span>
+            <span id="statusText">Checking Backend...</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="container">
+
+        <!-- Hero Section with Scroll Reveal -->
+        <section class="hero-section reveal">
+            <h1 class="hero-title">Deep Learning <span class="gradient-text">NLP Pipeline</span></h1>
+            <p class="hero-subtitle">Production-grade Transformer models powered by DistilBERT, GPT-2, and T5 architectures.</p>
+            <div class="stat-pills">
+                <div class="pill"><i class="fa-solid fa-microchip"></i> INT8 Quantized</div>
+                <div class="pill"><i class="fa-solid fa-gauge-high"></i> High Throughput</div>
+                <div class="pill"><i class="fa-solid fa-shield-halved"></i> FastAPI Core</div>
+            </div>
+        </section>
+
+        <!-- Navigation Workspaces Tabs -->
+        <div class="tabs-nav reveal">
+            <button class="tab-btn active" onclick="switchTab('classify')"><i class="fa-solid fa-tags"></i> Classification</button>
+            <button class="tab-btn" onclick="switchTab('generate')"><i class="fa-solid fa-wand-magic-sparkles"></i> Text Generation</button>
+            <button class="tab-btn" onclick="switchTab('summarize')"><i class="fa-solid fa-compress"></i> Summarization</button>
+            <button class="tab-btn" onclick="switchTab('translate')"><i class="fa-solid fa-language"></i> Translation</button>
+        </div>
+
+        <!-- WORKSPACE 1: CLASSIFICATION -->
+        <section id="classify" class="workspace-card active reveal">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-newspaper"></i> AG News Topic & Sentiment Classification</h2>
+                <p>DistilBERT fine-tuned encoder analyzing semantics and probability distributions.</p>
+            </div>
+            <div class="card-body grid-2">
+                <div class="input-group">
+                    <label for="classifyInput">Input Text:</label>
+                    <textarea id="classifyInput" rows="6" placeholder="Enter text or news article snippet to analyze...">Wall Street stocks surged today as tech earnings exceeded analyst predictions across all quarters.</textarea>
+                    <button class="btn btn-primary" onclick="runClassification()">
+                        <span class="btn-text"><i class="fa-solid fa-paper-plane"></i> Analyze Category</span>
+                        <div class="spinner hidden" id="classifySpinner"></div>
+                    </button>
+                </div>
+                <div class="output-group">
+                    <label>Inference Results:</label>
+                    <div class="result-box" id="classifyResult">
+                        <div class="placeholder-text"><i class="fa-solid fa-chart-pie"></i> Submit text to inspect classification probabilities.</div>
+                    </div>
+                    <div class="chart-container hidden" id="chartWrapper">
+                        <canvas id="probabilityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- WORKSPACE 2: GENERATION -->
+        <section id="generate" class="workspace-card reveal">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-robot"></i> GPT-2 Autoregressive Generation</h2>
+                <p>Causal language model predicting next token sequences based on sampling parameters.</p>
+            </div>
+            <div class="card-body grid-3">
+                <div class="params-panel">
+                    <h3>Parameters</h3>
+                    <div class="slider-group">
+                        <label>Temperature: <span id="valTemp">0.7</span></label>
+                        <input type="range" id="paramTemp" min="0.1" max="1.5" step="0.1" value="0.7" oninput="updateVal('valTemp', this.value)">
+                    </div>
+                    <div class="slider-group">
+                        <label>Top-K: <span id="valTopK">50</span></label>
+                        <input type="range" id="paramTopK" min="1" max="100" step="1" value="50" oninput="updateVal('valTopK', this.value)">
+                    </div>
+                    <div class="slider-group">
+                        <label>Top-P (Nucleus): <span id="valTopP">0.9</span></label>
+                        <input type="range" id="paramTopP" min="0.1" max="1.0" step="0.05" value="0.9" oninput="updateVal('valTopP', this.value)">
+                    </div>
+                    <div class="slider-group">
+                        <label>Max Tokens: <span id="valTokens">50</span></label>
+                        <input type="range" id="paramTokens" min="10" max="150" step="5" value="50" oninput="updateVal('valTokens', this.value)">
+                    </div>
+                </div>
+                <div class="input-output-panel span-2">
+                    <div class="input-group">
+                        <label for="generatePrompt">Prompt String:</label>
+                        <textarea id="generatePrompt" rows="3" placeholder="Start typing a sentence prompt...">Artificial Intelligence in modern healthcare is</textarea>
+                        <button class="btn btn-accent" onclick="runGeneration()">
+                            <span class="btn-text"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Completion</span>
+                            <div class="spinner hidden" id="generateSpinner"></div>
+                        </button>
+                    </div>
+                    <div class="output-group">
+                        <label>Generated Completion:</label>
+                        <div class="result-box code-font" id="generateResult">
+                            <div class="placeholder-text"><i class="fa-solid fa-terminal"></i> Output text will appear here with typewriter effect...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- WORKSPACE 3: SUMMARIZATION -->
+        <section id="summarize" class="workspace-card reveal">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-file-contract"></i> Abstractive Text Summarization</h2>
+                <p>Google T5 Encoder-Decoder transforming long passages into concise summaries.</p>
+            </div>
+            <div class="card-body grid-2">
+                <div class="input-group">
+                    <label for="summarizeInput">Article Text:</label>
+                    <textarea id="summarizeInput" rows="8" placeholder="Paste full article text here...">Transformer models have revolutionized natural language processing by enabling parallel token processing during training. Unlike traditional RNNs and LSTMs that process text sequentially step-by-step, transformers utilize multi-head self-attention mechanisms to capture complex contextual dependencies across long distance tokens instantly.</textarea>
+                    <button class="btn btn-primary" onclick="runSummarization()">
+                        <span class="btn-text"><i class="fa-solid fa-compress"></i> Summarize Text</span>
+                        <div class="spinner hidden" id="summarizeSpinner"></div>
+                    </button>
+                </div>
+                <div class="output-group">
+                    <label>Summary Result:</label>
+                    <div class="result-box" id="summarizeResult">
+                        <div class="placeholder-text"><i class="fa-solid fa-align-left"></i> Summary output will be displayed here...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- WORKSPACE 4: TRANSLATION -->
+        <section id="translate" class="workspace-card reveal">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-globe"></i> Neural Machine Translation</h2>
+                <p>T5 conditional generation converting English text to fluent German.</p>
+            </div>
+            <div class="card-body grid-2">
+                <div class="input-group">
+                    <label for="translateInput">English Text:</label>
+                    <input type="text" id="translateInput" value="Transformer architectures have revolutionized deep learning.">
+                    <button class="btn btn-primary" onclick="runTranslation()">
+                        <span class="btn-text"><i class="fa-solid fa-arrow-right-arrow-left"></i> Translate to German</span>
+                        <div class="spinner hidden" id="translateSpinner"></div>
+                    </button>
+                </div>
+                <div class="output-group">
+                    <label>German Translation:</label>
+                    <div class="result-box" id="translateResult">
+                        <div class="placeholder-text"><i class="fa-solid fa-language"></i> Translation output will appear here...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
