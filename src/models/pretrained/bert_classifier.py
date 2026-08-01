@@ -14,33 +14,40 @@ from src.utils.logger import setup_logger
 
 logger = setup_logger("bert_classifier_wrapper")
 
+# AG News standard label mapping
+AG_NEWS_ID2LABEL = {
+    0: "World",
+    1: "Sports",
+    2: "Business",
+    3: "Sci/Tech"
+}
+
 
 class PretrainedTransformerClassifier(nn.Module):
     """
     Modular PyTorch Wrapper for HuggingFace Pre-trained Classification Models 
     (BERT, DistilBERT, RoBERTa).
     """
-    def __init__(self, model_name: str = "distilbert-base-uncased", num_classes: int = 2):
+    def __init__(self, model_name: str = "distilbert-base-uncased", num_classes: int = 4):
         super().__init__()
         self.config_cfg = load_config()
         self.model_name = model_name
         self.num_classes = num_classes
 
         logger.info(f"Loading pre-trained classifier backbone: {self.model_name}...")
-        
-        # Load Hugging Face Model Configuration & Set Number of Labels
-        self.model_config = AutoConfig.from_pretrained(
-            self.model_name,
-            num_labels=self.num_classes
-        )
-        
-        # Load Model Backbone with Classification Head
-        self.model = AutoModelForSequenceClassification.from_pretrained(
-            self.model_name,
-            config=self.model_config
-        )
-        
-        # Load Tokenizer
+
+        # Load Hugging Face Model & Tokenizer
+        model_path = Path(self.model_name)
+        if model_path.exists():
+            # Load fine-tuned local checkpoint without overriding config
+            self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
+        else:
+            # Load base pre-trained model with new classification head
+            self.model = AutoModelForSequenceClassification.from_pretrained(
+                self.model_name,
+                num_labels=self.num_classes
+            )
+
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor = None, labels: torch.Tensor = None):
@@ -74,21 +81,24 @@ class PretrainedTransformerClassifier(nn.Module):
             pred_class = torch.argmax(probs, dim=-1).item()
             confidence = probs[0][pred_class].item()
 
+        # Resolve string label if within 4-class AG News scope
+        predicted_label = AG_NEWS_ID2LABEL.get(pred_class, str(pred_class))
+
         return {
-            "predicted_class": pred_class,
+            "predicted_class": predicted_label,
+            "predicted_class_id": pred_class,
             "confidence": round(confidence, 4),
             "probabilities": [round(p.item(), 4) for p in probs[0]]
         }
 
 
 if __name__ == "__main__":
-    # Test initialization with DistilBERT (2 classes)
     classifier_wrapper = PretrainedTransformerClassifier(
         model_name="distilbert-base-uncased",
-        num_classes=2
+        num_classes=4
     )
 
-    sample_text = "This film was an absolute masterclass in storytelling and cinematography!"
+    sample_text = "Wall Street stocks surged today as tech earnings exceeded analyst predictions across all quarters."
     result = classifier_wrapper.predict_text(sample_text)
 
     logger.info("✅ Pre-trained Classifier Wrapper test success!")

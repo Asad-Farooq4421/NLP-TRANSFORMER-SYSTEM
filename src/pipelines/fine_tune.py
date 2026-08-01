@@ -32,11 +32,12 @@ class FineTuningPipeline:
         # Determine number of classes based on dataset
         self.num_classes = 4 if dataset_name == "ag_news" else 2
 
-    def run(self, train_samples: int = 1000, eval_samples: int = 200):
+    def run(self, train_samples: int = 10000, eval_samples: int = 2000):
         """
         Runs complete loading, tokenization, training, and evaluation workflow.
         """
-        logger.info(f"Starting fine-tuning pipeline for {self.model_name} on {self.dataset_name}...")
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"Starting fine-tuning pipeline for {self.model_name} on {self.dataset_name} using device: {device.upper()}...")
 
         # 1. Initialize Wrapper Model & Tokenizer
         classifier_wrapper = PretrainedTransformerClassifier(
@@ -64,21 +65,24 @@ class FineTuningPipeline:
         output_dir = PROJECT_ROOT / "saved_models" / f"fine_tuned_{self.dataset_name}"
         os.makedirs(output_dir, exist_ok=True)
 
-        # 5. Define Hugging Face Training Arguments
+        # 5. Define Hugging Face Training Arguments (Optimized for RTX 4070)
+        use_fp16 = torch.cuda.is_available()  # Enable mixed precision training if CUDA GPU available
+        
         training_args = TrainingArguments(
             output_dir=str(output_dir),
             num_train_epochs=self.config["fine_tuning"]["epochs"],
-            per_device_train_batch_size=self.config["data"]["batch_size"],
-            per_device_eval_batch_size=self.config["data"]["batch_size"],
+            per_device_train_batch_size=32,   # Optimized batch size for 8GB VRAM
+            per_device_eval_batch_size=32,
             learning_rate=float(self.config["fine_tuning"]["learning_rate"]),
             weight_decay=float(self.config["fine_tuning"]["weight_decay"]),
             warmup_steps=self.config["fine_tuning"]["warmup_steps"],
-            eval_strategy="epoch",  # Updated from evaluation_strategy
+            fp16=use_fp16,                    # Accelerated FP16 computation for NVIDIA RTX
+            eval_strategy="epoch",
             save_strategy="epoch",
             load_best_model_at_end=True,
             metric_for_best_model="f1",
             logging_dir=str(PROJECT_ROOT / "logs"),
-            logging_steps=10,
+            logging_steps=20,
             report_to="none"
         )
 
@@ -92,7 +96,7 @@ class FineTuningPipeline:
         )
 
         # 7. Execute Training Loop
-        logger.info("Executing training loop...")
+        logger.info("Executing training loop on GPU...")
         trainer.train()
 
         # 8. Final Evaluation
@@ -108,6 +112,6 @@ class FineTuningPipeline:
 
 
 if __name__ == "__main__":
-    # Test run on small subset for quick verification
+    # Execute full fine-tuning with 10,000 training samples and 2,000 evaluation samples
     pipeline = FineTuningPipeline(model_name="distilbert-base-uncased", dataset_name="ag_news")
-    pipeline.run(train_samples=100, eval_samples=50)
+    pipeline.run(train_samples=10000, eval_samples=2000)

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Union
 
 # --- Request Schemas ---
 
@@ -26,7 +26,7 @@ class TextTranslationRequest(BaseModel):
 
 class ClassificationResponse(BaseModel):
     text: str
-    predicted_class: int
+    predicted_class: Union[str, int]  # Accepts category string (e.g., "Business") or integer ID (e.g., 2)
     confidence: float
     probabilities: List[float]
 

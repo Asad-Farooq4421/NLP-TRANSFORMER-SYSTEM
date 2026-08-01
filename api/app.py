@@ -81,9 +81,13 @@ def classify_text(request: TextClassificationRequest):
     try:
         classifier = models_dict.get("classifier_ag_news")
         result = classifier.predict_text(request.text)
+        
+        # Pass the integer ID (0, 1, 2, 3) so frontend JS array mapping works seamlessly
+        class_id = result.get("predicted_class_id", result.get("predicted_class"))
+        
         return ClassificationResponse(
             text=request.text,
-            predicted_class=result["predicted_class"],
+            predicted_class=class_id,
             confidence=result["confidence"],
             probabilities=result["probabilities"]
         )
