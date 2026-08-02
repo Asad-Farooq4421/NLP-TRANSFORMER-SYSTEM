@@ -1,4 +1,5 @@
-const API_URL = "http://localhost:8000";
+// Production Render Backend URL
+const API_URL = "https://nlp-transformer-system-6.onrender.com"; 
 let probabilityChart = null;
 
 // Initialize System on DOM Load
@@ -16,7 +17,7 @@ async function checkBackendHealth() {
         const response = await fetch(`${API_URL}/health`);
         if (response.ok) {
             dot.className = "status-dot online";
-            text.innerText = "API Backend Online (Port 8000)";
+            text.innerText = "API Backend Online (Render)";
         } else {
             throw new Error("API Offline");
         }
