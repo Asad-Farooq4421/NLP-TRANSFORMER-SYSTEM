@@ -1,5 +1,5 @@
 // Production Render Backend URL
-const API_URL = "https://nlp-transformer-system-6.onrender.com"; 
+const API_URL = "https://nlp-transformer-system-6.onrender.com";
 let probabilityChart = null;
 
 // Initialize System on DOM Load
@@ -96,15 +96,29 @@ async function runClassification() {
         const data = await res.json();
 
         const categories = ["World", "Sports", "Business", "Sci/Tech"];
-        const predCategory = categories[data.predicted_class] || "Unknown";
+        
+        // Handle predicted_class whether returned as an integer index (0-3) or string name ("Business")
+        let predCategory = "Unknown";
+        if (typeof data.predicted_class === "number") {
+            predCategory = categories[data.predicted_class] || "Unknown";
+        } else if (typeof data.predicted_class === "string") {
+            predCategory = data.predicted_class;
+        }
+
+        // Handle confidence value safely
+        const confidenceVal = data.confidence !== undefined ? (data.confidence * 100).toFixed(2) : "0.00";
 
         resultBox.innerHTML = `
             <div><strong>Predicted Category:</strong> <span style="color: #38bdf8; font-weight:700;">${predCategory}</span></div>
-            <div><strong>Model Confidence:</strong> ${(data.confidence * 100).toFixed(2)}%</div>
+            <div><strong>Model Confidence:</strong> ${confidenceVal}%</div>
         `;
 
         chartWrapper.classList.remove("hidden");
-        renderChart(categories, data.probabilities);
+        
+        // Render probabilities bar chart if probabilities array exists
+        if (Array.isArray(data.probabilities)) {
+            renderChart(categories, data.probabilities);
+        }
 
     } catch (err) {
         resultBox.innerHTML = `<span style="color: #ef4444;">Error: ${err.message}</span>`;
