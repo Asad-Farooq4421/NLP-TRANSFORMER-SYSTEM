@@ -1,7 +1,8 @@
 import sys
+import asyncio
 from pathlib import Path
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -23,20 +24,11 @@ from src.utils.logger import setup_logger
 
 logger = setup_logger("fastapi_app")
 
-# Global model container for lazy loading
 models_dict = {}
 
 
-def get_generation_pipeline():
-    """Lazy loader for generation pipeline to avoid startup delay."""
-    if "generation_pipeline" not in models_dict:
-        logger.info("Lazy-loading Generation Pipeline...")
-        models_dict["generation_pipeline"] = GenerationPipeline()
-    return models_dict["generation_pipeline"]
-
-
-def get_classifier():
-    """Lazy loader for classification model directly from Hugging Face Hub."""
+def load_classifier_sync():
+    """Synchronous loader executed in a background worker thread."""
     if "classifier_ag_news" not in models_dict:
         logger.info("Loading base DistilBERT classifier from Hugging Face Hub...")
         models_dict["classifier_ag_news"] = PretrainedTransformerClassifier(
@@ -45,27 +37,36 @@ def get_classifier():
     return models_dict["classifier_ag_news"]
 
 
+async def get_classifier_async():
+    """Asynchronous wrapper that offloads blocking model downloads off the main GIL loop."""
+    return await asyncio.to_thread(load_classifier_sync)
+
+
+def load_generator_sync():
+    if "generation_pipeline" not in models_dict:
+        logger.info("Loading Generation Pipeline...")
+        models_dict["generation_pipeline"] = GenerationPipeline()
+    return models_dict["generation_pipeline"]
+
+
+async def get_generation_pipeline_async():
+    return await asyncio.to_thread(load_generator_sync)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    FastAPI Lifespan Manager.
-    Allows instant port binding on startup to meet Render deployment requirements.
-    """
-    logger.info("🚀 API Server online! Models will lazy-load on first endpoint invocation.")
+    logger.info("🚀 API Server online!")
     yield
-    logger.info("Shutting down API server and releasing memory...")
     models_dict.clear()
 
 
-# Initialize FastAPI Application
 app = FastAPI(
     title="NLP System with Transformer Models API",
-    description="RESTful API providing Text Classification, Autoregressive Text Generation, Summarization, and Translation.",
     version="1.0.0",
     lifespan=lifespan
 )
 
-# Enable CORS explicitly for POST/OPTIONS requests from Vercel frontend
+# Open CORS configuration for cross-domain requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -77,38 +78,25 @@ app.add_middleware(
 
 @app.get("/", tags=["Health"])
 def root():
-    """Root route to handle Render health probes and avoid 404 logs."""
     return {"status": "online", "message": "Transformer Studio API is running live on Render!"}
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 def health_check():
-    """Health check endpoint to verify web service status."""
     return HealthResponse(status="online", version="1.0.0")
 
 
 @app.post("/predict/classify", response_model=ClassificationResponse, tags=["NLP Tasks"])
-def classify_text(request: TextClassificationRequest):
-    """Classifies input text into news categories using DistilBERT."""
+async def classify_text(request: TextClassificationRequest):
     try:
-        classifier = get_classifier()
+        classifier = await get_classifier_async()
         result = classifier.predict_text(request.text)
         
-        logger.info(f"Raw Classifier Output: {result}")
-        
         categories = ["World", "Sports", "Business", "Sci/Tech"]
-        
-        # Safely extract class index regardless of dict key variations
-        raw_pred = result.get("predicted_class", result.get("predicted_class_id", 0))
-        if isinstance(raw_pred, int) and 0 <= raw_pred < len(categories):
-            class_id = raw_pred
-        elif isinstance(raw_pred, str) and raw_pred in categories:
-            class_id = categories.index(raw_pred)
-        else:
-            class_id = 0
-            
-        confidence = float(result.get("confidence", result.get("score", 0.0)))
-        probabilities = result.get("probabilities", result.get("probs", [0.0, 0.0, 0.0, 0.0]))
+        raw_pred = result.get("predicted_class", 0)
+        class_id = raw_pred if isinstance(raw_pred, int) and 0 <= raw_pred < len(categories) else 0
+        confidence = float(result.get("confidence", 0.0))
+        probabilities = result.get("probabilities", [0.0, 0.0, 0.0, 0.0])
 
         return ClassificationResponse(
             text=request.text,
@@ -122,10 +110,9 @@ def classify_text(request: TextClassificationRequest):
 
 
 @app.post("/predict/generate", response_model=GenerationResponse, tags=["NLP Tasks"])
-def generate_text(request: TextGenerationRequest):
-    """Generates text completions using GPT-2 via HF Inference API."""
+async def generate_text(request: TextGenerationRequest):
     try:
-        gen_pipeline = get_generation_pipeline()
+        gen_pipeline = await get_generation_pipeline_async()
         completion = gen_pipeline.generate_gpt_completion(
             prompt=request.prompt,
             max_tokens=request.max_tokens,
@@ -140,10 +127,9 @@ def generate_text(request: TextGenerationRequest):
 
 
 @app.post("/predict/summarize", response_model=SummarizationResponse, tags=["NLP Tasks"])
-def summarize_text(request: TextSummarizationRequest):
-    """Summarizes input text using T5 via HF Inference API."""
+async def summarize_text(request: TextSummarizationRequest):
     try:
-        gen_pipeline = get_generation_pipeline()
+        gen_pipeline = await get_generation_pipeline_async()
         summary = gen_pipeline.summarize_text(request.text, max_length=request.max_length)
         return SummarizationResponse(original_text=request.text, summary=summary)
     except Exception as e:
@@ -152,10 +138,9 @@ def summarize_text(request: TextSummarizationRequest):
 
 
 @app.post("/predict/translate", response_model=TranslationResponse, tags=["NLP Tasks"])
-def translate_text(request: TextTranslationRequest):
-    """Translates English text to German using T5 via HF Inference API."""
+async def translate_text(request: TextTranslationRequest):
     try:
-        gen_pipeline = get_generation_pipeline()
+        gen_pipeline = await get_generation_pipeline_async()
         translated = gen_pipeline.translate_english_to_german(request.text)
         return TranslationResponse(
             original_text=request.text,
