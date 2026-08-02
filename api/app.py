@@ -23,7 +23,7 @@ from src.utils.logger import setup_logger
 
 logger = setup_logger("fastapi_app")
 
-# Global model container
+# Global model container for lazy loading
 models_dict = {}
 
 
@@ -72,13 +72,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Enable CORS for frontend web accessibility
+# Enable CORS explicitly for POST/OPTIONS requests from Vercel frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 
