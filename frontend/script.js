@@ -93,11 +93,17 @@ async function runClassification() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: input, task: "topic" })
         });
+        
         const data = await res.json();
+
+        // Check if server returned an error code (4xx or 5xx)
+        if (!res.ok) {
+            throw new Error(data.detail || `Server error: ${res.status}`);
+        }
 
         const categories = ["World", "Sports", "Business", "Sci/Tech"];
         
-        // Handle predicted_class whether returned as an integer index (0-3) or string name ("Business")
+        // Extract predicted category (supports index 0-3 or string label)
         let predCategory = "Unknown";
         if (typeof data.predicted_class === "number") {
             predCategory = categories[data.predicted_class] || "Unknown";
@@ -105,7 +111,7 @@ async function runClassification() {
             predCategory = data.predicted_class;
         }
 
-        // Handle confidence value safely
+        // Extract confidence score
         const confidenceVal = data.confidence !== undefined ? (data.confidence * 100).toFixed(2) : "0.00";
 
         resultBox.innerHTML = `
@@ -115,13 +121,12 @@ async function runClassification() {
 
         chartWrapper.classList.remove("hidden");
         
-        // Render probabilities bar chart if probabilities array exists
         if (Array.isArray(data.probabilities)) {
             renderChart(categories, data.probabilities);
         }
 
     } catch (err) {
-        resultBox.innerHTML = `<span style="color: #ef4444;">Error: ${err.message}</span>`;
+        resultBox.innerHTML = `<span style="color: #ef4444; font-weight:600;">Error: ${err.message}</span>`;
     } finally {
         spinner.classList.add("hidden");
     }
