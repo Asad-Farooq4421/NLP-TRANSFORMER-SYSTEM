@@ -23,43 +23,48 @@ from src.utils.logger import setup_logger
 
 logger = setup_logger("fastapi_app")
 
-# Global pipeline dictionary
+# Global model references
 models_dict = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Modern FastAPI Lifespan Context Manager for Model Loading & Teardown."""
-    logger.info("Initializing API Model Pipelines...")
-    
+    """
+    FastAPI Lifespan Manager.
+    Initializes lightweight API handlers at startup and releases resources on shutdown.
+    """
+    logger.info("Initializing API Pipelines and Models...")
+
+    # Load API-based generation pipeline (ultra-low RAM usage)
     models_dict["generation_pipeline"] = GenerationPipeline()
-    
+
+    # Load fine-tuned classifier checkpoint if available locally; otherwise fallback to base
     saved_checkpoint = PROJECT_ROOT / "saved_models" / "fine_tuned_ag_news"
     if saved_checkpoint.exists():
-        logger.info(f"Loading fine-tuned classifier from {saved_checkpoint}...")
+        logger.info(f"Loading local fine-tuned classifier from {saved_checkpoint}...")
         models_dict["classifier_ag_news"] = PretrainedTransformerClassifier(
             model_name=str(saved_checkpoint), num_classes=4
         )
     else:
-        logger.info("Checkpoint not found. Loading default DistilBERT classifier...")
+        logger.info("No local fine-tuned checkpoint found. Loading default DistilBERT classifier...")
         models_dict["classifier_ag_news"] = PretrainedTransformerClassifier(
             model_name="distilbert-base-uncased", num_classes=4
         )
-        
-    logger.info("✅ All API models successfully loaded!")
+
+    logger.info("✅ All API services initialized successfully!")
     yield
-    logger.info("Shutting down API and releasing resources...")
+    logger.info("Shutting down API server and clearing resources...")
     models_dict.clear()
 
 
 # Initialize FastAPI Application
 app = FastAPI(
     title="NLP System with Transformer Models API",
-    description="RESTful API providing Text Classification, Autoregressive Text Generation, Summarization, and Translation using Transformer Architectures.",
+    description="RESTful API providing Text Classification, Autoregressive Text Generation, Summarization, and Translation.",
     version="1.0.0",
     lifespan=lifespan
 )
 
-# Enable CORS for frontend accessibility
+# Enable CORS for frontend web accessibility
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -71,18 +76,21 @@ app.add_middleware(
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 def health_check():
-    """Health check endpoint to verify system status."""
+    """Health check endpoint to verify web service status."""
     return HealthResponse(status="online", version="1.0.0")
 
 
 @app.post("/predict/classify", response_model=ClassificationResponse, tags=["NLP Tasks"])
 def classify_text(request: TextClassificationRequest):
-    """Classifies input text into categories using fine-tuned DistilBERT."""
+    """Classifies input text into news categories using fine-tuned DistilBERT."""
     try:
         classifier = models_dict.get("classifier_ag_news")
+        if not classifier:
+            raise HTTPException(status_code=503, detail="Classifier model is not ready.")
+            
         result = classifier.predict_text(request.text)
         
-        # Pass the integer ID (0, 1, 2, 3) so frontend JS array mapping works seamlessly
+        # Support both class name string and zero-indexed ID (0, 1, 2, 3) for frontend UI mapping
         class_id = result.get("predicted_class_id", result.get("predicted_class"))
         
         return ClassificationResponse(
@@ -98,9 +106,12 @@ def classify_text(request: TextClassificationRequest):
 
 @app.post("/predict/generate", response_model=GenerationResponse, tags=["NLP Tasks"])
 def generate_text(request: TextGenerationRequest):
-    """Generates autoregressive text completions using GPT-2."""
+    """Generates autoregressive text completions via Hugging Face API."""
     try:
         gen_pipeline = models_dict.get("generation_pipeline")
+        if not gen_pipeline:
+            raise HTTPException(status_code=503, detail="Generation pipeline is not ready.")
+
         completion = gen_pipeline.generate_gpt_completion(
             prompt=request.prompt,
             max_tokens=request.max_tokens,
@@ -116,9 +127,12 @@ def generate_text(request: TextGenerationRequest):
 
 @app.post("/predict/summarize", response_model=SummarizationResponse, tags=["NLP Tasks"])
 def summarize_text(request: TextSummarizationRequest):
-    """Summarizes text using Google T5."""
+    """Summarizes input text using Google T5 via HF API."""
     try:
         gen_pipeline = models_dict.get("generation_pipeline")
+        if not gen_pipeline:
+            raise HTTPException(status_code=503, detail="Summarization pipeline is not ready.")
+
         summary = gen_pipeline.summarize_text(request.text, max_length=request.max_length)
         return SummarizationResponse(original_text=request.text, summary=summary)
     except Exception as e:
@@ -128,9 +142,12 @@ def summarize_text(request: TextSummarizationRequest):
 
 @app.post("/predict/translate", response_model=TranslationResponse, tags=["NLP Tasks"])
 def translate_text(request: TextTranslationRequest):
-    """Translates English text to German using Google T5."""
+    """Translates English text to German using Google T5 via HF API."""
     try:
         gen_pipeline = models_dict.get("generation_pipeline")
+        if not gen_pipeline:
+            raise HTTPException(status_code=503, detail="Translation pipeline is not ready.")
+
         translated = gen_pipeline.translate_english_to_german(request.text)
         return TranslationResponse(
             original_text=request.text,
