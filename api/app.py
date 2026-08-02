@@ -39,13 +39,20 @@ def get_classifier():
     """Lazy loader for classification model to pass Render port scan instantly."""
     if "classifier_ag_news" not in models_dict:
         saved_checkpoint = PROJECT_ROOT / "saved_models" / "fine_tuned_ag_news"
-        if saved_checkpoint.exists():
-            logger.info(f"Loading fine-tuned classifier checkpoint from {saved_checkpoint}...")
+        
+        # Check if folder exists AND contains actual PyTorch/Safetensors weights
+        has_weights = (
+            saved_checkpoint.exists() and 
+            ((saved_checkpoint / "model.safetensors").exists() or (saved_checkpoint / "pytorch_model.bin").exists())
+        )
+        
+        if has_weights:
+            logger.info(f"Loading local fine-tuned classifier checkpoint from {saved_checkpoint}...")
             models_dict["classifier_ag_news"] = PretrainedTransformerClassifier(
                 model_name=str(saved_checkpoint), num_classes=4
             )
         else:
-            logger.info("Checkpoint not found. Loading base DistilBERT classifier...")
+            logger.info("Local weight files missing. Loading base DistilBERT classifier from Hugging Face Hub...")
             models_dict["classifier_ag_news"] = PretrainedTransformerClassifier(
                 model_name="distilbert-base-uncased", num_classes=4
             )
@@ -91,7 +98,7 @@ def health_check():
 
 @app.post("/predict/classify", response_model=ClassificationResponse, tags=["NLP Tasks"])
 def classify_text(request: TextClassificationRequest):
-    """Classifies input text into news categories using fine-tuned DistilBERT."""
+    """Classifies input text into news categories using DistilBERT."""
     try:
         classifier = get_classifier()
         result = classifier.predict_text(request.text)
