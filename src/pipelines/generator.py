@@ -1,4 +1,6 @@
 import sys
+import os
+import requests
 from pathlib import Path
 
 # Ensure project root is in sys.path
@@ -6,8 +8,6 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.models.pretrained.gpt_generator import PretrainedGPTGenerator
-from src.models.pretrained.t5_model import PretrainedT5Model
 from src.utils.logger import setup_logger
 
 logger = setup_logger("generation_pipeline")
@@ -15,15 +15,24 @@ logger = setup_logger("generation_pipeline")
 
 class GenerationPipeline:
     """
-    Unified Pipeline Manager for Generative Transformer Tasks:
-    - Autoregressive Text Generation (GPT-2)
-    - Abstractive Summarization (T5-Small)
-    - Neural Machine Translation (T5-Small)
+    Lightweight Generation Pipeline using Hugging Face Serverless Inference API.
+    Prevents Render Out-Of-Memory (OOM) errors by offloading model hosting.
     """
     def __init__(self):
-        logger.info("Initializing Generation Pipeline...")
-        self.gpt_generator = PretrainedGPTGenerator(model_name="gpt2")
-        self.t5_model = PretrainedT5Model(model_name="t5-small")
+        logger.info("Initializing Hugging Face API Generation Pipeline...")
+        self.hf_token = os.getenv("HF_TOKEN", "")
+        self.headers = {"Authorization": f"Bearer {self.hf_token}"} if self.hf_token else {}
+
+    def _query_api(self, model_id: str, payload: dict) -> dict:
+        """Helper method to send POST requests to Hugging Face Router API."""
+        url = f"https://router.huggingface.co/hf-inference/v1/models/{model_id}"
+        try:
+            response = requests.post(url, headers=self.headers, json=payload, timeout=20)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"HF API Call failed for {model_id}: {str(e)}")
+            raise e
 
     def generate_gpt_completion(
         self,
@@ -33,66 +42,52 @@ class GenerationPipeline:
         top_k: int = 50,
         top_p: float = 0.9
     ) -> str:
-        """
-        Generates text completions using GPT-2 model wrapper.
-        """
-        try:
-            # Handle method name fallback (generate_text vs generate_gpt_completion)
-            if hasattr(self.gpt_generator, "generate_text"):
-                return self.gpt_generator.generate_text(
-                    prompt=prompt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    top_k=top_k,
-                    top_p=top_p
-                )
-            elif hasattr(self.gpt_generator, "generate_completion"):
-                return self.gpt_generator.generate_completion(
-                    prompt=prompt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    top_k=top_k,
-                    top_p=top_p
-                )
-            else:
-                raise AttributeError("GPT Generator object missing text generation method.")
-        except Exception as e:
-            logger.error(f"Error generating GPT completion: {str(e)}")
-            raise e
+        """Generates text completions via HF Inference API."""
+        payload = {
+            "inputs": prompt,
+            "parameters": {
+                "max_new_tokens": max_tokens,
+                "temperature": max(temperature, 0.01),
+                "top_k": top_k,
+                "top_p": top_p,
+                "return_full_text": True
+            }
+        }
+        res = self._query_api("gpt2", payload)
+        
+        if isinstance(res, list) and len(res) > 0:
+            full_text = res[0].get("generated_text", prompt)
+            # Truncate output at the last full sentence
+            last_punct = max(full_text.rfind('.'), full_text.rfind('!'), full_text.rfind('?'))
+            if last_punct > len(prompt):
+                return full_text[:last_punct + 1]
+            return full_text
+        return prompt
 
     def summarize_text(self, text: str, max_length: int = 60) -> str:
-        """
-        Summarizes input text using Google T5 model wrapper.
-        """
-        try:
-            if hasattr(self.t5_model, "summarize"):
-                return self.t5_model.summarize(text=text, max_length=max_length)
-            elif hasattr(self.t5_model, "summarize_text"):
-                return self.t5_model.summarize_text(text=text, max_length=max_length)
-            else:
-                raise AttributeError("T5 Model object missing summarization method.")
-        except Exception as e:
-            logger.error(f"Error summarizing text: {str(e)}")
-            raise e
+        """Summarizes text via HF Inference API (T5-Small)."""
+        payload = {
+            "inputs": f"summarize: {text}",
+            "parameters": {"max_length": max_length, "min_length": 15}
+        }
+        res = self._query_api("t5-small", payload)
+        if isinstance(res, list) and len(res) > 0:
+            return res[0].get("summary_text", res[0].get("generated_text", ""))
+        return "Failed to generate summary."
 
     def translate_english_to_german(self, text: str) -> str:
-        """
-        Translates English text to German using Google T5 model wrapper.
-        """
-        try:
-            if hasattr(self.t5_model, "translate"):
-                return self.t5_model.translate(text=text)
-            elif hasattr(self.t5_model, "translate_english_to_german"):
-                return self.t5_model.translate_english_to_german(text=text)
-            else:
-                raise AttributeError("T5 Model object missing translation method.")
-        except Exception as e:
-            logger.error(f"Error translating text: {str(e)}")
-            raise e
+        """Translates English to German via HF Inference API (T5-Small)."""
+        payload = {
+            "inputs": f"translate English to German: {text}"
+        }
+        res = self._query_api("t5-small", payload)
+        if isinstance(res, list) and len(res) > 0:
+            return res[0].get("translation_text", res[0].get("generated_text", ""))
+        return "Failed to translate text."
 
 
 if __name__ == "__main__":
     pipeline = GenerationPipeline()
     sample_text = "Data Science is"
     result = pipeline.generate_gpt_completion(sample_text)
-    logger.info(f"✅ Test Generation Output: {result}")
+    logger.info(f"✅ HF API Test Output: {result}")
