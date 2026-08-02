@@ -96,14 +96,27 @@ def classify_text(request: TextClassificationRequest):
         classifier = get_classifier()
         result = classifier.predict_text(request.text)
         
-        # Support integer class ID for frontend UI array mapping
-        class_id = result.get("predicted_class_id", result.get("predicted_class"))
+        logger.info(f"Raw Classifier Output: {result}")
         
+        categories = ["World", "Sports", "Business", "Sci/Tech"]
+        
+        # Safely extract class index regardless of dict key variations
+        raw_pred = result.get("predicted_class", result.get("predicted_class_id", 0))
+        if isinstance(raw_pred, int) and 0 <= raw_pred < len(categories):
+            class_id = raw_pred
+        elif isinstance(raw_pred, str) and raw_pred in categories:
+            class_id = categories.index(raw_pred)
+        else:
+            class_id = 0
+            
+        confidence = float(result.get("confidence", result.get("score", 0.0)))
+        probabilities = result.get("probabilities", result.get("probs", [0.0, 0.0, 0.0, 0.0]))
+
         return ClassificationResponse(
             text=request.text,
             predicted_class=class_id,
-            confidence=result["confidence"],
-            probabilities=result["probabilities"]
+            confidence=confidence,
+            probabilities=probabilities
         )
     except Exception as e:
         logger.error(f"Classification Error: {str(e)}")
