@@ -93,17 +93,15 @@ async function runClassification() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: input, task: "topic" })
         });
-        
+
         const data = await res.json();
 
-        // Check if server returned an error code (4xx or 5xx)
         if (!res.ok) {
-            throw new Error(data.detail || `Server error: ${res.status}`);
+            throw new Error(data.detail || `Server Error ${res.status}`);
         }
 
         const categories = ["World", "Sports", "Business", "Sci/Tech"];
         
-        // Extract predicted category (supports index 0-3 or string label)
         let predCategory = "Unknown";
         if (typeof data.predicted_class === "number") {
             predCategory = categories[data.predicted_class] || "Unknown";
@@ -111,7 +109,6 @@ async function runClassification() {
             predCategory = data.predicted_class;
         }
 
-        // Extract confidence score
         const confidenceVal = data.confidence !== undefined ? (data.confidence * 100).toFixed(2) : "0.00";
 
         resultBox.innerHTML = `
@@ -187,6 +184,9 @@ async function runGeneration() {
             })
         });
         const data = await res.json();
+        
+        if (!res.ok) throw new Error(data.detail || `Server Error ${res.status}`);
+        
         typeWriterEffect("generateResult", data.generated_text);
     } catch (err) {
         document.getElementById("generateResult").innerText = `Error: ${err.message}`;
@@ -211,6 +211,9 @@ async function runSummarization() {
             body: JSON.stringify({ text: text, max_length: 60 })
         });
         const data = await res.json();
+
+        if (!res.ok) throw new Error(data.detail || `Server Error ${res.status}`);
+
         document.getElementById("summarizeResult").innerText = data.summary;
     } catch (err) {
         document.getElementById("summarizeResult").innerText = `Error: ${err.message}`;
@@ -235,6 +238,9 @@ async function runTranslation() {
             body: JSON.stringify({ text: text, target_language: "German" })
         });
         const data = await res.json();
+
+        if (!res.ok) throw new Error(data.detail || `Server Error ${res.status}`);
+
         document.getElementById("translateResult").innerHTML = `<strong style="color: #10b981;">${data.translated_text}</strong>`;
     } catch (err) {
         document.getElementById("translateResult").innerText = `Error: ${err.message}`;

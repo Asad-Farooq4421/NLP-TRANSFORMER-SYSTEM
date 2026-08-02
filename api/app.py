@@ -36,7 +36,7 @@ def get_generation_pipeline():
 
 
 def get_classifier():
-    """Lazy loader for classification model to pass Render port scan instantly."""
+    """Lazy loader for classification model directly from Hugging Face Hub."""
     if "classifier_ag_news" not in models_dict:
         logger.info("Loading base DistilBERT classifier from Hugging Face Hub...")
         models_dict["classifier_ag_news"] = PretrainedTransformerClassifier(
@@ -74,6 +74,12 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"]
 )
+
+
+@app.get("/", tags=["Health"])
+def root():
+    """Root route to handle Render health probes and avoid 404 logs."""
+    return {"status": "online", "message": "Transformer Studio API is running live on Render!"}
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])

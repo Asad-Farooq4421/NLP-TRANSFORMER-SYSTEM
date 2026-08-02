@@ -5,7 +5,8 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 class PretrainedTransformerClassifier(nn.Module):
     def __init__(self, model_name: str = "distilbert-base-uncased", num_classes: int = 4):
         super().__init__()
-        # If model_name points to an invalid/empty local path, fallback to Hugging Face model ID
+        
+        # Override local folder paths if weights are missing or uncommitted
         if not isinstance(model_name, str) or not model_name or "saved_models" in model_name:
             model_name = "distilbert-base-uncased"
             
